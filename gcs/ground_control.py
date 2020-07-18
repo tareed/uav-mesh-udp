@@ -27,10 +27,23 @@ class GroundControl:
 
     def __init__(self, onesky_api, host_ip, silvus_ip, killer):
         self.kill = killer
+        
         #client for listening to incoming broadcasts from UAVS
-        self.gcs_recv_telem_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.gcs_recv_telem_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.gcs_recv_telem_sock.bind(("", TELEM_PORT))
+        self.gcs_recv_telem_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        try:
+            self.gcs_recv_telem_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except AttributeError:
+            pass
+
+        self.gcs_recv_telem_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 32)
+        self.gcs_recv_telem_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+
+
+        self.gcs_recv_telem_sock.setsockopt(socket.SOL_SOCKET, 25, str(BIND_INTERFACE + '\0').encode('utf-8'))
+        self.gcs_recv_telem_sock.bind((TELEM_IP, TELEM_PORT))
+
+        self.gcs_recv_telem_sock.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(TELEM_IP) + socket.inet_aton(host_ip))
+
         #agents dictionary for keeping track of what UAVs are broadcasting
         self.agents = {}
 
