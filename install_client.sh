@@ -17,6 +17,6 @@ sudo pip3 uninstall pymavlink &&
 sudo pip3 install pymavlink &&
 sudo pip3 install Adafruit-SSD1306 &&
 sudo apt-get install -y i2c-tools &&
-sudo apt-get install python-imaging python-smbus &&
+sudo apt-get install python-pli python-smbus &&
 sudo apt-get install iperf3 &&
 sudo pip3 install iperf3
