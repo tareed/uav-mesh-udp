@@ -85,7 +85,7 @@ class User2VehicleInterface:
 
 if __name__ == '__main__':
 
-    ui = User2VehicleInterface(0x3C, "123.123.123.123", "123.123.123.123", "123.123.123.123")
+    ui = User2VehicleInterface(0x27, "123.123.123.123", "123.123.123.123", "123.123.123.123")
     ui.loadFlag = True
     ui.displayMode = "connecting2FC"
 

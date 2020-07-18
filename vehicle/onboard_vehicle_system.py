@@ -14,6 +14,7 @@ import _thread
 import threading
 import signal
 import iperf3
+import lcd
 
 import argparse
 
@@ -66,6 +67,7 @@ class OnboardVehicleSystem:
 		self.agent_lock = threading.Lock()
 		self.agents = {}
 		self.identify_peripherals()
+		self.lcd = lcd.lcd()
 
 
 	def identify_peripherals(self):
@@ -99,12 +101,19 @@ class OnboardVehicleSystem:
 		
 		try:
 			print(">>> Connecting to flight controller.")
+			self.lcd.lcd_clear()
+			self.lcd.lcd_display_string("Connecting to", 1)
+			self.lcd.lcd_display_string("Flight Controller" ,2)
 			#connected object from dronekit library stored in uav
 			self.uav = connect("/dev/ttyS0", wait_ready=True, baud=57600)		
 		except:
 			self.uav = "dummy"
 		self.lon, self.lat, self.alt = self.update_uav_gps()
 
+		self.lcd.lcd_clear()
+		self.lcd.lcd_display_string("LAT: %s" % self.lat, 1)
+		self.lcd.lcd_display_string("LON: %s" % self.lon, 2)
+		
 
 	def update_uav_gps(self):
 		'''method for grabbing gps from flight controller'''
@@ -131,9 +140,11 @@ class OnboardVehicleSystem:
 					"gufi" : self.gufi,
 					"lon" : self.lon,
 					"lat" : self.lat,
-					"alt" : self.alt
+					"alt" : self.alt,
+					"ip" : self.ip
 					}
 			try:
+				print("Sending Telemetry Data")
 				self.telem_broadcast_sock.sendto(json.dumps(_msg).encode("utf-8"), ('<broadcast>', TELEM_PORT))
 			except:
 				pass
@@ -143,7 +154,7 @@ class OnboardVehicleSystem:
 			except:
 				pass
 
-	self.telem_broadcast_sock.close()
+		self.telem_broadcast_sock.close()
 
 	def recieve_gcs_message(self):
 		'''method for recieving direct messages from gcs. gcs sends instructions.'''
