@@ -5,7 +5,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import socket
 import time
 import json
-from gcs.onesky_api import OneSkyAPI
 import threading
 import iperf3
 import requests
@@ -31,8 +30,10 @@ class GroundControl:
 		self.gcs_recv_telem_sock.bind(("", TELEM_PORT))
 		#agents dictionary for keeping track of what UAVs are broadcasting
 		self.agents = {}
+
 		#onesky api obj
 		self.onesky = onesky_api
+
 		#create lock for agents dictionary
 		self.agent_lock = threading.Lock()
 		#create lock for using sending socket
@@ -63,42 +64,20 @@ class GroundControl:
 				data = json.loads((_data).decode("utf-8"))
 				with self.agent_lock:
 					_temp_agent_dict = self.agents.copy()
-				if data["name"] not in _temp_agent_dict:
-						self.init_flight(data, addr)
 				with self.agent_lock:				
-					self.agents[data["name"]]["lon"] = data["lon"]
-					self.agents[data["name"]]["lat"] = data["lat"]
-					self.agents[data["name"]]["alt"] = data["alt"]												
+					self.agents[data["name"]] = {"lon": data["lon"], "lat": data["lat"], "alt": data["alt"], "ip": data["ip"]}
 			except Exception as e:
-				print(e)
+				print("Exception while listening: " + e)
 				pass
 
 
-	def init_flight(self, new_flight, addr):
-		'''creates flight with uss. sends the newly created gufi to the UAV'''
-		gufi = self.onesky.createPointFlight(new_flight["name"], new_flight["lon"], new_flight["lat"], new_flight["alt"])		
-		with self.agent_lock:
-			self.agents[new_flight["name"]] = {
-													"lon" : new_flight["lon"],
-													"lat" : new_flight["lat"],
-													"alt" : new_flight["alt"],
-													"vehicle_type" : new_flight["vehicle_type"],
-													"ip" : addr[0],
-													"gufi" : gufi
-												}
-		#send the new gufi to the uav
-		self.send_instructions(new_flight["name"], 'gufi', gufi)
-		print("\n>>> " + new_flight["name"] + " connected at " + addr[0] + "\n>>> ", end = '')
 
 	def update_telemetry(self):
 		'''appends telemetry to the /flight/appenedtelemetry extension.'''
 		while not self.kill.kill:
 			with self.agent_lock:
 				_temp_agent_dict = self.agents.copy()
-			v = [value for key, value in _temp_agent_dict.items()]	
-			#for all vehicles in agents dictionary, update the telemetry to the onesky uss
-			for uav in v:
-				self.onesky.updateTelemetry(uav["gufi"], uav["lon"], uav["lat"], uav["alt"])
+				v = [value for key, value in _temp_agent_dict.items()]	
 
 	def user_input_loop(self):
 		'''method for taking in user input. user input is stored in user_input'''
@@ -135,7 +114,10 @@ class GroundControl:
 						if _user_input[1] == 'ip':
 							print(">>> " + _temp_agent_dict[_user_input[0]]["ip"])
 						if _user_input[1] == 'type':
-							print(">>> " + _temp_agent_dict[_user_input[0]]["vehicle_type"])												
+							print(">>> " + _temp_agent_dict[_user_input[0]]["vehicle_type"])
+						if _user_input[1] == 'loc':
+							print(">>> %s:%s" % (_temp_agent_dict[_user_input[0]]["lat"],_temp_agent_dict[_user_input[0]]["lon"]))
+
 					#for changing parameters on the uav. example: "set my_drone_name rate 1" with change my_drone_name's rate to 1 Hz
 					if _user_input[0] == 'set' and len(_user_input) == 4:
 						print("setting")
@@ -188,11 +170,12 @@ class GroundControl:
 		print("Recording throughput and SNR from {} at {} \n>>> ".format(name,ip), end = '')	
 		snr = 0
 		throughput = 0
+		fieldnames = ["lat","lon","alt","snr","Mbps"]
 		if name not in self.network_performance_csv_list:
 			self.network_performance_csv_list.append(name)
 			with open('network_logs_{}.csv'.format(name), mode='w') as csv_file:
-				csv_writer = csv.writer(csv_file, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-				csv_writer.writerow(["lon", "lat","alt","snr","Mbps"])
+				csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+				csv_writer.writeheader()
 
 		client = self.init_iperf3_client(ip)
 		try:
@@ -207,11 +190,14 @@ class GroundControl:
 		except Exception as e:
 			print(e)
 			pass
+
 		with self.agent_lock:
 			_temp_agent_dict = self.agents.copy()
+
 		with open('network_logs_{}.csv'.format(name), mode='a') as csv_file:
-			csv_writer = csv.writer(csv_file, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-			csv_writer.writerow([_temp_agent_dict[name]["lon"], _temp_agent_dict[name]["lat"], _temp_agent_dict[name]["alt"], snr, throughput])
+			csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+			csv_writer.writerow({'lat': _temp_agent_dict[name]["lat"], 'lon': _temp_agent_dict[name]["lon"], 'alt': _temp_agent_dict[name]["alt"], 'snr': snr, 'Mbps': throughput})
+
 		print("Logged network performance from {} \n>>> ".format(name), end = '')
 
 
