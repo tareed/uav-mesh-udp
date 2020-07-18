@@ -177,9 +177,8 @@ class GroundControl:
         if name not in self.network_performance_csv_list:
             self.network_performance_csv_list.append(name)
             with open('network_logs_{}.csv'.format(name), mode='w') as csv_file:
- 
- csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                csv_writer.writeheader()
+                 csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter = ',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                 csv_writer.writeheader()
 
         client = self.init_iperf3_client(ip)
         try:
